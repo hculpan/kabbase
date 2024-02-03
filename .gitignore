@@ -9,6 +9,10 @@
 *.dylib
 .DS_Store
 data
+tmp
+
+kabbase
+kbase-cli
 
 .env
 .cli_env

@@ -5,10 +5,14 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/dgraph-io/badger/v3"
 	"github.com/go-chi/chi/v5"
-	dbbadger "github.com/hculpan/kabbase/pkg/dbBadger"
+	"github.com/hculpan/kabbase/pkg/dbbadger"
 	"github.com/joho/godotenv"
 )
+
+var secretKey []byte
+var db *badger.DB
 
 func main() {
 	err := godotenv.Load()
@@ -26,41 +30,30 @@ func main() {
 		port = "8080"
 	}
 
+	key := os.Getenv("PASETO_SECRET_KEY")
+	if len(key) == 0 {
+		log.Fatal("Unable to find secret key")
+	}
+	secretKey = []byte(key)
+
 	// Initialize BadgerDB
-	db, err := dbbadger.OpenDB(dbPath)
+	dbConn, err := dbbadger.OpenDB(dbPath)
 	if err != nil {
 		log.Fatal(err)
 	}
+	db = dbConn
 	defer db.Close()
 
 	// Chi Router
 	r := chi.NewRouter()
 
 	// Middleware for PASETO token verification
+	r.Use(LogMiddleware)
 	r.Use(AuthMiddleware)
 
-	// Authentication Endpoint
-	r.Post("/authenticate", func(w http.ResponseWriter, r *http.Request) {
-		// Implement authentication logic and return PASETO token
-	})
-
-	// Protected Endpoints
-	r.Get("/protected-resource", func(w http.ResponseWriter, r *http.Request) {
-		// This endpoint is protected by the AuthMiddleware
-	})
+	setRoutes(r)
 
 	log.Default().Printf("Data path: %s\n", dbPath)
 	log.Default().Printf("Server started on port %s\n", port)
 	http.ListenAndServe(":"+port, r)
 }
-
-// AuthMiddleware to validate PASETO token
-func AuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Implement PASETO token validation logic
-		// If valid, call next.ServeHTTP(w, r)
-		// If not valid, return an error response
-	})
-}
-
-// Other functions for handling authentication, token generation, and BadgerDB interactions

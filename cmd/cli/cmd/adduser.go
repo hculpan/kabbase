@@ -4,13 +4,15 @@ Copyright © 2024 Harry Culpan <harry@culpan.org>
 package cmd
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"os"
 
 	"github.com/dgraph-io/badger/v3"
-	dbbadger "github.com/hculpan/kabbase/pkg/dbBadger"
+	"github.com/hculpan/kabbase/pkg/dbbadger"
+	"github.com/hculpan/kabbase/pkg/entities"
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
@@ -24,7 +26,7 @@ var adduserCmd = &cobra.Command{
 		if len(args) != 2 {
 			return errors.New("must specify username and passkey")
 		}
-		err := godotenv.Load(".cli_env")
+		err := godotenv.Load()
 		if err != nil {
 			log.Fatal("Error loading .env file")
 		}
@@ -44,7 +46,14 @@ var adduserCmd = &cobra.Command{
 		if err != nil && !errors.Is(err, badger.ErrKeyNotFound) {
 			log.Fatal(err)
 		} else if err != nil && errors.Is(err, badger.ErrKeyNotFound) {
-			dbbadger.SetKey(db, "user_"+args[0], []byte(args[1]))
+			user := entities.NewUser(args[0], args[1])
+			jsonData, err := json.Marshal(user)
+			if err != nil {
+				return err
+			}
+			if err := dbbadger.SetKey(db, "user_"+args[0], []byte(jsonData)); err != nil {
+				return err
+			}
 			fmt.Printf("User %q successfully added\n", args[0])
 		} else {
 			fmt.Printf("User %q already registered\n", args[0])
